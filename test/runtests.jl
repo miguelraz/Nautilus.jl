@@ -2,69 +2,63 @@ using Nautilus
 using Test
 using GLMakie
 using GPUCompiler
+using LLVM
+using LLVM.Interop
 
 
-@testset "Nautilus.jl" begin
+#@testset "Nautilus.jl" begin
     # Write your tests here.
-end
+#end
 ####
-
-fig = Figure()
-menu = Menu(fig, options = ["viridis", "heat", "blues"])
-funcs = [sqrt, x->x^2, sin, cos]
-menu2 = Menu(fig, options = zip(["Square Root", "Square", "Sine", "Cosine"], funcs))
-fig[1, 1] = vgrid!(
-    Label(fig, "Colormap", width = nothing),
-    menu,
-    Label(fig, "Function", width = nothing),
-    menu2;
-    tellheight = false, width = 200)
-ax = Axis(fig[1, 2])
-func = Observable{Any}(funcs[1])
-ys = lift(func) do f
-    f.(0:0.3:10)
-end
-scat = scatter!(ax, ys, markersize = 30px, color = ys)
-cb = Colorbar(fig[1, 3], scat)
-on(menu.selection) do s
-    scat.colormap = s
-end
-on(menu2.selection) do s
-    func[] = s
-    autolimits!(ax)
-end
-menu2.is_open = true
-fig
+#let 
+###    fig = Figure()
+###    menu = Menu(fig, options = ["viridis", "heat", "blues"])
+###    funcs = [sqrt, x->x^2, sin, cos]
+###    menu2 = Menu(fig, options = zip(["Square Root", "Square", "Sine", "Cosine"], funcs))
+###    fig[1, 1] = vgrid!(
+###        Label(fig, "Colormap", width = nothing),
+###        menu,
+###        Label(fig, "Function", width = nothing),
+###        menu2;
+###        tellheight = false, width = 200)
+###    ax = Axis(fig[1, 2])
+###    func = Observable{Any}(funcs[1])
+###    ys = lift(func) do f
+###        f.(0:0.3:10)
+###    end
+###    scat = scatter!(ax, ys, markersize = 30px, color = ys)
+###    cb = Colorbar(fig[1, 3], scat)
+###    on(menu.selection) do s
+###        scat.colormap = s
+###    end
+###    on(menu2.selection) do s
+###        func[] = s
+###        autolimits!(ax)
+###    end
+###    menu2.is_open = true
+###    fig
+###end
 ##### Toggles
-using GLMakie
-fig = Figure()
-ax = Axis(fig[1, 1])
-toggles = [Toggle(fig, active = active) for active in [true, false]]
-labels = [Label(fig, lift(x -> x ? "$l visible" : "$l invisible", t.active))
-    for (t, l) in zip(toggles, ["sine", "cosine"])]
-fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false)
-line1 = lines!(0..10, sin, color = :blue, visible = false)
-line2 = lines!(0..10, cos, color = :red)
-connect!(line1.visible, toggles[1].active)
-connect!(line2.visible, toggles[2].active)
-fig
+###let
+###    using GLMakie
+###    fig = Figure()
+###    ax = Axis(fig[1, 1])
+###    toggles = [Toggle(fig, active = active) for active in [true, false]]
+###    labels = [Label(fig, lift(x -> x ? "$l visible" : "$l invisible", t.active))
+###        for (t, l) in zip(toggles, ["sine", "cosine"])]
+###    fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false)
+###    line1 = lines!(0..10, sin, color = :blue, visible = false)
+###    line2 = lines!(0..10, cos, color = :red)
+###    connect!(line1.visible, toggles[1].active)
+###    connect!(line2.visible, toggles[2].active)
+###    fig
+###end
+
 ####
-fig = Figure()
-toggles = [Toggle(fig, active = active.checked) for active in mypasses]
-labels = [Label(fig, lift( x -> x ? "TRUE $(string(l.pass))" : "FALSE $(string(l.pass))", t.active); halign = :left)
-    for (t, l) in zip(toggles, mypasses)]
-fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false)
-
-
-
-r = Ref{Int}(42)
-r[] = 43
-nothing
-####
-
+#" These are in LLVM/src/interop"
 global mypasses = [
-  (;checked = true, pass = alloca_opt!),
-  (;checked = true, pass = GPUCompiler.speculative_execution_if_has_branch_divergence!),
+  (;checked = true, pass = alloc_opt!),
+  (;checked = true, pass = speculative_execution_if_has_branch_divergence!),
   (;checked = true, pass = loop_unroll!),
   (;checked = true, pass = instruction_combining!),
   (;checked = true, pass = licm!),
@@ -135,15 +129,15 @@ using Highlights.Format
 using Highlights.Tokens
 using Highlights.Themes
 
-import Highlights.Themes: has_fg
+#using Highlights.Themes: has_fg
 css2color(str) = parse(RGBA{Float32}, string("#", str))
 css2color(c::Themes.RGB) = RGBA{Float32}(c.r/255, c.g/255, c.b/255, 1.0)
 
 function style2color(style, default)
     #if has_fg(style)
-        css2color(style.fg)
+    #    css2color(style.fg)
     #else
-    #    default
+        default
     #end
 end
 
@@ -151,9 +145,9 @@ function render_str(
         ctx::Format.Context, theme::Format.Theme
     )
     #defaultcolor = if has_fg(theme.base)
-    defaultcolor =     css2color(theme.base.fg)
+    #defaultcolor =     css2color(theme.base.fg)
     #else
-    #    RGBA(0f0, 0f0, 0f0, 1f0)
+        defaultcolor = RGBA(0f0, 0f0, 0f0, 1f0)
     #end
     colormap = map(s-> style2color(s, defaultcolor), theme.styles)
     tocolor = Dict(zip(Tokens.__TOKENS__, colormap))
@@ -164,7 +158,7 @@ function render_str(
         str = SubString(ctx.source, token.first, token.last)
         print(io, str)
         append!(colors, fill(tocolor[t], length(str)))
-        # push!(colors, tocolor[t])
+        push!(colors, tocolor[t])
     end
     String(take!(io)), colors
 end
@@ -188,7 +182,8 @@ end
 
 str, colors = highlight_text(src)
 
-text(str, color=colors)
+#text(str, color=colors)
+text(str)
 ###### Modify optimize_module!
 
 
@@ -224,10 +219,33 @@ function main()
     params = TestCompilerParams()
     job = CompilerJob(target, source, params)
 
-    #println(GPUCompiler.compile(:asm, job)[1])
+    #println(GPUCompiler.compile(:llvm, job)[1])
     
     GPUCompiler.compile(:asm, job) |> first
 end
 
 isinteractive() || main()
 main()
+
+#### GO GLEN COCO
+    fig = Figure();
+    ax = Axis(fig[1,1]);
+    toggles = [Toggle(fig, active = active.checked) for active in mypasses];
+    labels = [Label(fig, lift( x -> x ? "$(string(l.pass))" : "$(string(l.pass))", t.active); halign = :left, textsize = 48.0f0)
+        for (t, l) in zip(toggles, mypasses)];
+    fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false)
+    fig
+
+#text(fig[1,1], main(), position = (0,0), align = :left)
+sspace = campixel(fig.scene);
+width, height = size(sspace) 
+width, height = 50, height * .9 # fudge for visibility
+teststr = Observable(main())
+strlistener = on(teststr) do _
+    main()
+
+end
+text!(sspace, teststr, position = (width, height), align = (:left, :top), font = "JuliaMono");
+fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false);
+fig
+#cam = Makie.camrelative(fig.scene);
