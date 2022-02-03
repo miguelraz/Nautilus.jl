@@ -56,22 +56,17 @@ using LLVM.Interop
 
 ####
 #" These are in LLVM/src/interop"
-global mypasses = [
-  (;checked = true, pass = alloc_opt!),
-  (;checked = true, pass = speculative_execution_if_has_branch_divergence!),
-  (;checked = true, pass = loop_unroll!),
-  (;checked = true, pass = instruction_combining!),
-  (;checked = true, pass = licm!),
-  (;checked = true, pass = early_csemem_ssa!),
-  (;checked = true, pass = dead_store_elimination!),
-  (;checked = true, pass = cfgsimplification!),
-  (;checked = true, pass = global_dce!)
+global PASSES = [
+  alloc_opt!,
+  speculative_execution_if_has_branch_divergence!,
+  loop_unroll!,
+  instruction_combining!,
+  licm!,
+  early_csemem_ssa!,
+  dead_store_elimination!,
+  cfgsimplification!,
+  global_dce!
 ]
-
-observable_mypasses = Observable(mypasses)
-
-
-
 
 # TODO Don't type pirate  
 function GPUCompiler.optimize_module!(@nospecialize(job::CompilerJob{PTXCompilerTarget}),
@@ -81,9 +76,10 @@ function GPUCompiler.optimize_module!(@nospecialize(job::CompilerJob{PTXCompiler
          add_library_info!(pm, triple(mod))
          add_transform_info!(pm, tm)
 
-         for p in passes
-            if p.checked
-                p.pass(pm)
+         # TODO
+         for (pass,toggle) in zip(PASSES, TOGGLES)
+            if toggle.active.val
+                pass(pm)
             end
         end
         run!(pm, mod)
@@ -215,15 +211,15 @@ kernel() = begin
     nothing
 end
 
-function main(jobtype = :asm)
+function main(jobtype = :llvm)
     source = FunctionSpec(kernel)
     target = NativeCompilerTarget()
     params = TestCompilerParams()
     job = CompilerJob(target, source, params)
 
-    #println(GPUCompiler.compile(:llvm, job)[1])
     
-    GPUCompiler.compile(jobtype, job) |> first
+    jobtype == :llvm && return GPUCompiler.compile(:llvm, job)[1] |> string
+    jobtype == :asm  && return GPUCompiler.compile(:asm, job)[1] |> string
 end
 
 #isinteractive() || main()
@@ -252,21 +248,40 @@ end
 #fig
 #cam = Makie.camrelative(fig.scene);
 #
-let 
+#let 
     fig = Figure(backgroundcolor = :gray70);
     passbox = fig[1,2] = Axis(fig[1,2], title = "Passes")
     #toggle = Toggle(f)
     #label = Label(f, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggle.active), textsize = 48f0)
     #f[1,2] = grid!(hcat([toggle], label), tellheight = false)
-    toggles = [Toggle(fig, active = active.checked) for active in mypasses];
-    labels = [Label(fig, lift( x -> x ? "$(string(l.pass))" : "$(string(l.pass))", t.active); halign = :left, textsize = 48.0f0)
-        for (t, l) in zip(toggles, mypasses)];
+    toggles = [Toggle(fig) for _ in PASSES];
+    labels = [Label(fig, lift(x -> x ? "$(string(pass))" : "$(string(pass))", t.active); halign = :left, textsize = 48.0f0)
+        for (t, pass) in zip(toggles, PASSES)];
     fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false)
     # TODO LLVM or asm job compiler
     textbox = fig[1,1] = Axis(fig[1,1], title = "Compiled code")
-    text!(textbox, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggles[1].active))
-    text!(textbox, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggles[2].active))
+    #text!(textbox, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggles[1].active))
+    #str = @lift begin 
+        #for toggle in 1:length(toggles)
+            #$(toggle[i].active)
+            #end; 
+            #main()
+        #end
+    #onany(toggles) do x
+    #    str[] = main()
+    #end
+    #onany(toggles, main)
+    #onany(main, toggles...)
+
+            
+    #text!(textbox, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggles[2].active))
+    bools = [t.active.val for t in toggles]
+    bobs = Observable(bools)
+    str = Observable(main())
+    #on(toggles[2].active) do x
+    #    println(x)
+    #end
+    str = "$(str[])\n$(string([t.active.val for t in toggles]))" |> Observable
+    text!(textbox, bobs)
     fig
-end
-
-
+#end
