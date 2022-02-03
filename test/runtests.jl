@@ -68,6 +68,8 @@ global mypasses = [
   (;checked = true, pass = global_dce!)
 ]
 
+observable_mypasses = Observable(mypasses)
+
 
 
 
@@ -122,68 +124,68 @@ end
 
 #### Code highlighting
 
-using Colors
-using Highlights
-
-using Highlights.Format
-using Highlights.Tokens
-using Highlights.Themes
-
-#using Highlights.Themes: has_fg
-css2color(str) = parse(RGBA{Float32}, string("#", str))
-css2color(c::Themes.RGB) = RGBA{Float32}(c.r/255, c.g/255, c.b/255, 1.0)
-
-function style2color(style, default)
-    #if has_fg(style)
-    #    css2color(style.fg)
-    #else
-        default
-    #end
-end
-
-function render_str(
-        ctx::Format.Context, theme::Format.Theme
-    )
-    #defaultcolor = if has_fg(theme.base)
-    #defaultcolor =     css2color(theme.base.fg)
-    #else
-        defaultcolor = RGBA(0f0, 0f0, 0f0, 1f0)
-    #end
-    colormap = map(s-> style2color(s, defaultcolor), theme.styles)
-    tocolor = Dict(zip(Tokens.__TOKENS__, colormap))
-    colors = RGBA{Float32}[]
-    io = IOBuffer()
-    for token in ctx.tokens
-        t = Tokens.__TOKENS__[token.value.value]
-        str = SubString(ctx.source, token.first, token.last)
-        print(io, str)
-        append!(colors, fill(tocolor[t], length(str)))
-        push!(colors, tocolor[t])
-    end
-    String(take!(io)), colors
-end
-
-
-function highlight_text(src::AbstractString, theme = Themes.DefaultTheme)
-    io = IOBuffer()
-    render_str(
-        Highlights.Compiler.lex(src, Lexers.JuliaLexer),
-        Themes.theme(theme)
-    )
-end
-
-
-src = """
-function test(a, b)
-    const a = sin(a) + 2.0
-    return a 
-end
-"""
-
-str, colors = highlight_text(src)
+###using Colors
+###using Highlights
+###
+###using Highlights.Format
+###using Highlights.Tokens
+###using Highlights.Themes
+###
+####using Highlights.Themes: has_fg
+###css2color(str) = parse(RGBA{Float32}, string("#", str))
+###css2color(c::Themes.RGB) = RGBA{Float32}(c.r/255, c.g/255, c.b/255, 1.0)
+###
+###function style2color(style, default)
+###    #if has_fg(style)
+###    #    css2color(style.fg)
+###    #else
+###        default
+###    #end
+###end
+###
+###function render_str(
+###        ctx::Format.Context, theme::Format.Theme
+###    )
+###    #defaultcolor = if has_fg(theme.base)
+###    #defaultcolor =     css2color(theme.base.fg)
+###    #else
+###        defaultcolor = RGBA(0f0, 0f0, 0f0, 1f0)
+###    #end
+###    colormap = map(s-> style2color(s, defaultcolor), theme.styles)
+###    tocolor = Dict(zip(Tokens.__TOKENS__, colormap))
+###    colors = RGBA{Float32}[]
+###    io = IOBuffer()
+###    for token in ctx.tokens
+###        t = Tokens.__TOKENS__[token.value.value]
+###        str = SubString(ctx.source, token.first, token.last)
+###        print(io, str)
+###        append!(colors, fill(tocolor[t], length(str)))
+###        push!(colors, tocolor[t])
+###    end
+###    String(take!(io)), colors
+###end
+###
+###
+###function highlight_text(src::AbstractString, theme = Themes.DefaultTheme)
+###    io = IOBuffer()
+###    render_str(
+###        Highlights.Compiler.lex(src, Lexers.JuliaLexer),
+###        Themes.theme(theme)
+###    )
+###end
+###
+###
+###src = """
+###function test(a, b)
+###    const a = sin(a) + 2.0
+###    return a 
+###end
+###"""
+###
+###str, colors = highlight_text(src)
 
 #text(str, color=colors)
-text(str)
+#text(str)
 ###### Modify optimize_module!
 
 
@@ -213,7 +215,7 @@ kernel() = begin
     nothing
 end
 
-function main()
+function main(jobtype = :asm)
     source = FunctionSpec(kernel)
     target = NativeCompilerTarget()
     params = TestCompilerParams()
@@ -221,31 +223,50 @@ function main()
 
     #println(GPUCompiler.compile(:llvm, job)[1])
     
-    GPUCompiler.compile(:asm, job) |> first
+    GPUCompiler.compile(jobtype, job) |> first
 end
 
-isinteractive() || main()
-main()
+#isinteractive() || main()
+#main()
 
 #### GO GLEN COCO
-    fig = Figure();
-    ax = Axis(fig[1,1]);
+#    fig = Figure();
+#    ax = Axis(fig[1,1]);
+#    toggles = [Toggle(fig, active = active.checked) for active in mypasses];
+#    labels = [Label(fig, lift( x -> x ? "$(string(l.pass))" : "$(string(l.pass))", t.active); halign = :left, textsize = 48.0f0)
+#        for (t, l) in zip(toggles, mypasses)];
+#    fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false)
+#    fig
+#
+##text(fig[1,1], main(), position = (0,0), align = :left)
+#sspace = campixel(fig.scene);
+#width, height = size(sspace) 
+#width, height = 50, height * .9 # fudge for visibility
+#teststr = Observable(main())
+#strlistener = on(teststr) do _
+#    main()
+#
+#end
+#text!(sspace, teststr, position = (width, height), align = (:left, :top), font = "JuliaMono");
+#fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false);
+#fig
+#cam = Makie.camrelative(fig.scene);
+#
+let 
+    fig = Figure(backgroundcolor = :gray70);
+    passbox = fig[1,2] = Axis(fig[1,2], title = "Passes")
+    #toggle = Toggle(f)
+    #label = Label(f, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggle.active), textsize = 48f0)
+    #f[1,2] = grid!(hcat([toggle], label), tellheight = false)
     toggles = [Toggle(fig, active = active.checked) for active in mypasses];
     labels = [Label(fig, lift( x -> x ? "$(string(l.pass))" : "$(string(l.pass))", t.active); halign = :left, textsize = 48.0f0)
         for (t, l) in zip(toggles, mypasses)];
     fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false)
+    # TODO LLVM or asm job compiler
+    textbox = fig[1,1] = Axis(fig[1,1], title = "Compiled code")
+    text!(textbox, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggles[1].active))
+    text!(textbox, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggles[2].active))
     fig
-
-#text(fig[1,1], main(), position = (0,0), align = :left)
-sspace = campixel(fig.scene);
-width, height = size(sspace) 
-width, height = 50, height * .9 # fudge for visibility
-teststr = Observable(main())
-strlistener = on(teststr) do _
-    main()
-
 end
-text!(sspace, teststr, position = (width, height), align = (:left, :top), font = "JuliaMono");
-fig[1, 2] = grid!(hcat(toggles, labels), tellheight = false);
-fig
-#cam = Makie.camrelative(fig.scene);
+
+
