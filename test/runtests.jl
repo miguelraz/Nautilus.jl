@@ -277,11 +277,29 @@ end
     #text!(textbox, lift(x -> x ? "ON TOGGLE" : "OFF TOGGLE", toggles[2].active))
     bools = [t.active.val for t in toggles]
     bobs = Observable(bools)
-    str = Observable(main())
+    #str = Observable(main())
     #on(toggles[2].active) do x
     #    println(x)
     #end
-    str = "$(str[])\n$(string([t.active.val for t in toggles]))" |> Observable
-    text!(textbox, bobs)
+    #str = "$(str[])\n$(string([t.active.val for t in toggles]))" |> Observable
+    str = @lift begin
+        $(toggles[1].active)
+        $(toggles[2].active)
+        $(toggles[3].active)
+        $(toggles[4].active)
+        $(toggles[5].active)
+        $(toggles[6].active)
+        $(toggles[7].active)
+        $(toggles[8].active)
+        $(toggles[9].active)
+        string([t.active.val for t in toggles])
+    end
+    height = size(campixel(fig.scene))[2]
+    w, h = size(campixel(fig.scene))
+    w = 50
+    @show h
+    @show w
+    pos = (w, 2 * h)
+    text!(textbox, str, font = "JuliaMono",  align = (:left, :top), position = pos)
     fig
 #end
