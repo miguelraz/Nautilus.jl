@@ -36,29 +36,29 @@ using LLVM.Interop
 # These are the optimization passes in LLVM/src/interop.jl".
 # We will turn these on and off with Makie `Toggle`s later on.
 global PASSES = [
-  alloc_opt!,
-  speculative_execution_if_has_branch_divergence!,
-  loop_unroll!,
-  instruction_combining!,
-  licm!,
-  early_csemem_ssa!,
-  dead_store_elimination!,
-  cfgsimplification!,
-  global_dce!
+    alloc_opt!,
+    speculative_execution_if_has_branch_divergence!,
+    loop_unroll!,
+    instruction_combining!,
+    licm!,
+    early_csemem_ssa!,
+    dead_store_elimination!,
+    cfgsimplification!,
+    global_dce!
 ]
 
 # We're going to pirate this function now for the purposes of this demo. Be warned 💀!
 function GPUCompiler.optimize_module!(@nospecialize(job::CompilerJob{PTXCompilerTarget}),
-                           mod::LLVM.Module)
-     tm = llvm_machine(job.target)
-     ModulePassManager() do pm
-         add_library_info!(pm, triple(mod))
-         add_transform_info!(pm, tm)
+    mod::LLVM.Module)
+    tm = llvm_machine(job.target)
+    ModulePassManager() do pm
+        add_library_info!(pm, triple(mod))
+        add_transform_info!(pm, tm)
 
-         # This is the new logic:
-         # Only activate the passes if the toggles are set to `true`
-         # You have to check the `toggle.active.val` field for that.
-         for (pass,toggle) in zip(PASSES, TOGGLES)
+        # This is the new logic:
+        # Only activate the passes if the toggles are set to `true`
+        # You have to check the `toggle.active.val` field for that.
+        for (pass, toggle) in zip(PASSES, TOGGLES)
             if toggle.active.val
                 pass(pm)
             end
@@ -70,12 +70,12 @@ end
 # The next few lines of code are GPUCompiler boilerplate.
 # They help setup the compilation job with the proper hooks, more on them at another demo.
 module TestRuntime
-    signal_exception() = return
-    malloc(sz) = C_NULL
-    report_oom(sz) = return
-    report_exception(ex) = return
-    report_exception_name(ex) = return
-    report_exception_frame(idx, func, file, line) = return
+signal_exception() = return
+malloc(sz) = C_NULL
+report_oom(sz) = return
+report_exception(ex) = return
+report_exception_name(ex) = return
+report_exception_frame(idx, func, file, line) = return
 end
 
 struct TestCompilerParams <: AbstractCompilerParams end
@@ -94,12 +94,12 @@ function main()
     target = NativeCompilerTarget()
     params = TestCompilerParams()
     job = CompilerJob(target, source, params)
-    
+
     # This `menu.selection[]` gets updated whenever the `menu` Observable 
     # is updated. 
     jobtype = menu.selection[]
     jobtype == :llvm && return GPUCompiler.compile(:llvm, job)[1] |> string
-    jobtype == :asm  && return GPUCompiler.compile(:asm, job)[1] |> string
+    jobtype == :asm && return GPUCompiler.compile(:asm, job)[1] |> string
 end
 
 ############################################################################################
@@ -112,16 +112,24 @@ end
 # ##########################################################################################
 #
 # 1, 2, 3 Setups
-fig = Figure(backgroundcolor = :gray70);
-passbox = fig[1,2] = Axis(fig[1,2], title = "Passes")
-toggles = [Toggle(fig) for _ in PASSES];
-labels = [Label(fig, lift(x -> x ? "$(string(pass))" : "$(string(pass))", t.active); halign = :left, textsize = 48.0f0)
-    for (t, pass) in zip(toggles, PASSES)];
-menu = Menu(fig[1,2], options = [:llvm, :asm], tellheight = false, textsize = 48.0f0, halign = :left)
+# include("addsomecolor.jl") # this kinda works, we just need to synchronize the Observables!
+fig = Figure(resolution = (1800, 2600), backgroundcolor = "#748AA6")
+txtsize = Observable(0.08)
+toggles = [Toggle(fig) for _ in PASSES]
+labels = [Label(fig, lift(x -> x ? "$(string(pass))" : "$(string(pass))", t.active); halign = :left)
+          for (t, pass) in zip(toggles, PASSES)]
+menu = Menu(fig, options = [:llvm, :asm])
+fig[1, 2] = vgrid!(
+    Label(fig, "Passes", width = nothing),
+    menu; tellheight = false, width = 150)
 fig[2, 2] = grid!(hcat(toggles, labels), tellheight = false)
-textbox = fig[1:2,1] = Axis(fig[1:2,1], title = "Compiled code")
 
+textbox = fig[1:2, 1] = Axis(fig[1:2, 1], title = "Compiled code")
+sl = Slider(fig[1, 2, Left()], range = 0.05:0.001:0.1, startvalue = 0.075, horizontal = false)
+connect!(txtsize, sl.value)
 # 4. Lift
+#strtxt = Observable("n")
+#colorsObs = Observable(RGBA{Float32}[RGBA{Float32}(0,0,0,1)])
 str = @lift begin
     $(toggles[1].active)
     $(toggles[2].active)
@@ -133,10 +141,19 @@ str = @lift begin
     $(toggles[8].active)
     $(toggles[9].active)
     $(menu.selection)
-    string(main())
+    strtmp = string(main(menu))
+    #highlight_text(strtmp, Themes.DefaultTheme)
+    strtmp
 end
-# 5. Paint text
-text!(textbox, str, font = "JuliaMono", align = (:left, :top), justification = :left, textsize = 48f0)
+#strtxt.val = @lift($str[1])[]
+#colorsObs[] = @lift($str[2])[]
+
+s = text!(textbox, str, color = :black, #colorsObs,
+    font = "JuliaMono", align = (:left, :top),
+    justification = :left, textsize = txtsize, space = :data)
+#delete!(textbox.scene, s.val)
+xlims!(textbox, -0.5, 10)
+ylims!(textbox, -10, 0.5)
 fig
 
 # KNOWN ISSUES:
