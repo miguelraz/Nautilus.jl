@@ -9,7 +9,6 @@ GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GPUCompiler = "61eb1bfa-7361-4325-ad38-22787b887f55"
 Highlights = "eafb193a-b7ab-5a9e-9068-77385905fa72"
 LLVM = "929cbde3-209d-540e-8aea-75f648917ca0"
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [compat]
 julia = "1"
