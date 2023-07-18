@@ -12,6 +12,9 @@ LLVM = "929cbde3-209d-540e-8aea-75f648917ca0"
 
 [compat]
 julia = "1"
+GPUCompiler = "0.21.4"
+GLMakie = "0.8.6"
+
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
